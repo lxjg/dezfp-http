@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/xml"
 	"io/ioutil"
 	"net/http"
@@ -102,7 +103,7 @@ type BillClient struct {
 	XMLName     xml.Name         `xml:"interface"`
 	Global      *GlobalInfo      `xml:"globalInfo"`
 	ReturnState *ReturnStateInfo `xml:"returnStateInfo"`
-	RequestData *Data            `xml:"data"`
+	RequestData *Data            `xml:"Data"`
 	Key         string           `xml:"-"`
 }
 
@@ -112,12 +113,20 @@ type SecBillClient struct {
 }
 
 // ToString 转成字符串
-func (c *Data) encrypt(key []byte) {
+func (c *Data) encrypt(key []byte) error {
 	code, _ := xml.Marshal(c.Content)
 	requestType := `<REQUEST_FPXXXZ_NEW class='REQUEST_FPXXXZ_NEW'>`
 	str := strings.Replace(string(code), "<REQUEST_FPXXXZ_NEW>", requestType, -1)
-	res := util.TripleDESCBCEncrypt([]byte(str), key)
-	c.EncryptContent = string(res)
+
+	res, err := tools.TripleDesECBEncrypt([]byte(str), key)
+
+	if err != nil {
+		return err
+	}
+
+	c.EncryptContent = base64.StdEncoding.EncodeToString(res)
+
+	return nil
 }
 
 func (c *Data) defaultDescription() {
@@ -131,10 +140,10 @@ func (c *Data) defaultDescription() {
 // ToString 转成字符串
 func (s *BillClient) toString() string {
 	code, _ := xml.Marshal(s)
-	interfactType := `<?xml version='1.0' encoding='utf-8'?>
-	<interface xmlns='' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
-	xsi:schemaLocation='http://www.chinatax.gov.cn/tirip/dataspec/interfaces.xsd'
-	version='DZFP1.0'>`
+	interfactType := `<?xml version="1.0" encoding="utf-8"?>
+	<interface xmlns="" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.chinatax.gov.cn/tirip/dataspec/interfaces.xsd"
+	version="DZFP1.0">`
 	return strings.Replace(string(code), "<interface>", interfactType, -1)
 }
 
@@ -162,7 +171,12 @@ func (s *BillClient) Download() (interface{}, error) {
 
 func (s *BillClient) init(interfaceCode string) []byte {
 	s.setInterfaceCode(interfaceCode)
-	s.RequestData.encrypt([]byte(s.Key))
+	err := s.RequestData.encrypt([]byte(s.Key))
+
+	if err != nil {
+		return nil
+	}
+
 	if s.RequestData.Description == nil {
 		s.RequestData.defaultDescription()
 	}
@@ -181,15 +195,19 @@ func (s *BillClient) setInterfaceCode(code string) {
 func (s *BillClient) doAction(interfaceCode string) (interface{}, error) {
 	// BillClient初始化
 	xmlStr := s.init(interfaceCode)
+
+	// panic(string(xmlStr))
+
 	//发送请求.
 	req, err := http.NewRequest("POST", URL, bytes.NewReader(xmlStr))
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("Accept", "application/xml")
+	// req.Header.Set("Accept", "text/xml")
 	//这里的http header的设置是必须设置的.
-	req.Header.Set("Content-Type", "application/xml;charset=utf-8")
+	req.Header.Set("Content-Type", "text/xml")
+	req.Header.Add("charset", "utf-8")
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -206,6 +224,7 @@ func (s *BillClient) doAction(interfaceCode string) (interface{}, error) {
 		err = xml.Unmarshal(body, &xmlRe)
 		return xmlRe.ReturnState, err
 	}
+
 	var xmlRe SecBillClient
 	err = xml.Unmarshal(body, &xmlRe)
 	return xmlRe.ResponseData, err
