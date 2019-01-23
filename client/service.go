@@ -53,14 +53,78 @@ type DataDescription struct {
 	CodeType    string `xml:"codeType"`
 }
 
+// FPTXX 订单信息
+type FPTXX struct {
+	FPQQLSH   string `xml:"FPQQLSH"`
+	DSPTBM    string `xml:"DSPTBM"`
+	NSRSBH    string `xml:"NSRSBH"`
+	NSRMC     string `xml:"NSRMC"`
+	DKBZ      string `xml:"DKBZ"`
+	KPXM      string `xml:"KPXM"`
+	BMBBBH    string `xml:"BMB_BBH"`
+	XHFNSRSBH string `xml:"XHF_NSRSBH"`
+	XHFMC     string `xml:"XHFMC"`
+	XHFDZ     string `xml:"XHF_DZ"`
+	XHFDH     string `xml:"XHF_DH"`
+	XHFYHZH   string `xml:"XHF_YHZH"`
+	GHFMC     string `xml:"GHFMC"`
+	GHFQYLX   string `xml:"GHFQYLX"`
+	GHFDZ     string `xml:"GHF_DZ"`
+	GHFGDDH   string `xml:"GHF_GDDH"`
+	GHFSJ     string `xml:"GHF_SJ"`
+	GHFEMAIL  string `xml:"GHF_EMAIL"`
+	GHFYHZH   string `xml:"GHF_YHZH"`
+	HYDM      string `xml:"HY_DM"`
+	HYMC      string `xml:"HY_MC"`
+	KPY       string `xml:"KPY"`
+	FHR       string `xml:"FHR"`
+	SKY       string `xml:"SKY"`
+	KPRQ      string `xml:"KPRQ"`
+	KPLX      string `xml:"KPLX"`
+	YFPDM     string `xml:"YFP_DM"`
+	YFPHM     string `xml:"YFP_HM"`
+	CZDM      string `xml:"CZDM"`
+	QDBZ      string `xml:"QD_BZ"`
+	QDXMMC    string `xml:"QDXMMC"`
+	CHYY      string `xml:"CHYY"`
+	TSCHBZ    string `xml:"TSCHBZ"`
+	KPHJJE    string `xml:"KPHJJE"`
+}
+type XMXX struct {
+	XMLName xml.Name `xml:"FPKJXX_XMXX"`
+	XMMC    string   `xml:"XMMC"`
+	XMDW    string   `xml:"XMDW"`
+	XMSL    string   `xml:"XMSL"`
+	HSBZ    string   `xml:"HSBZ"`
+	SPBM    string   `xml:"SPBM"`
+	XMJE    string   `xml:"XMDJ"`
+	SL      string   `xml:"SL"`
+	FPHXZ   string   `xml:"FPHXZ"`
+}
+
+type XMXXS struct {
+	Items []XMXX
+}
+
+type DDXX struct {
+	DDH string `xml:"DDH"`
+}
+
 // RequestContent 交换数据内容
-type RequestContent struct {
+type MakeRequestContent struct {
+	XMLName xml.Name `xml:"REQUEST_FPKJXX"`
+	FPTXX   FPTXX    `xml:"FPKJXX_FPTXX"`
+	XMXXS   XMXXS    `xml:"FPKJXX_XMXXS"`
+	DDXX    DDXX     `xml:"FPKJXX_DDXX"`
+}
+
+type DownloadRequestContent struct {
 	XMLName xml.Name `xml:"REQUEST_FPXXXZ_NEW"`
-	Fpqqlsh string   `xml:"FPQQLSH"`
-	Dsptbm  string   `xml:"DSPTBM"`
-	Nsrsbh  string   `xml:"NSRSBH"`
-	Ddh     string   `xml:"DDH"`
-	PdfXzfs string   `xml:"PDF_XZFS"`
+	FPQQLSH string   `xml:"FPQQLSH"`
+	DSPTBM  string   `xml:"DSPTBM"`
+	NSRSBH  string   `xml:"NSRSBH"`
+	DDH     string   `xml:"DDH"`
+	PDFXZFS string   `xml:"PDF_XZFS"`
 }
 
 // ResponseContent 交换数据内容
@@ -85,17 +149,19 @@ type ResponseContent struct {
 	RETURNMESSAGE string   `xml:"RETURNMESSAGE"`
 }
 
-// Data 交换数据
-type Data struct {
+// RequestData 交换数据
+type RequestData struct {
 	Description *DataDescription `xml:"dataDescription"`
 	// EncryptContent 根据Content加密生成
 	EncryptContent string `xml:"content"`
 	// Content 交换数据内容明文，必需
-	Content *RequestContent `xml:"-"`
+	Content    interface{} `xml:"-"`
+	ActionName string      `xml:"-"`
 }
 
+// ResponseData 返回数据
 type ResponseData struct {
-	Content *ResponseContent `xml:"content"`
+	Content string `xml:"content"`
 }
 
 // BillClient xml请求
@@ -103,21 +169,36 @@ type BillClient struct {
 	XMLName     xml.Name         `xml:"interface"`
 	Global      *GlobalInfo      `xml:"globalInfo"`
 	ReturnState *ReturnStateInfo `xml:"returnStateInfo"`
-	RequestData *Data            `xml:"Data"`
+	RequestData *RequestData     `xml:"Data"`
 	Key         string           `xml:"-"`
 }
 
+// SecBillClient 返回数据接收器
 type SecBillClient struct {
-	XMLName      xml.Name      `xml:"interface"`
-	ResponseData *ResponseData `xml:"data"`
+	XMLName      xml.Name         `xml:"interface"`
+	ReturnState  *ReturnStateInfo `xml:"returnStateInfo"`
+	ResponseData *ResponseData    `xml:"Data"`
 }
 
 // ToString 转成字符串
-func (c *Data) encrypt(key []byte) error {
+func (c *RequestData) encrypt(key []byte) error {
 	code, _ := xml.Marshal(c.Content)
-	requestType := `<REQUEST_FPXXXZ_NEW class='REQUEST_FPXXXZ_NEW'>`
-	str := strings.Replace(string(code), "<REQUEST_FPXXXZ_NEW>", requestType, -1)
+	str := string(code)
+	if c.ActionName == MakeOutBill {
+		requestType := `<REQUEST_FPKJXX class="REQUEST_FPKJXX">`
+		str = strings.Replace(str, "<REQUEST_FPKJXX>", requestType, -1)
+		fptxx := `<FPKJXX_FPTXX class="FPKJXX_FPTXX">`
+		str = strings.Replace(str, "<FPKJXX_FPTXX>", fptxx, -1)
+		xmxxs := `<FPKJXX_XMXXS class="FPKJXX_XMXX;" size="1">`
+		str = strings.Replace(str, "<FPKJXX_XMXXS>", xmxxs, -1)
+		ddxx := `<FPKJXX_DDXX class="FPKJXX_DDXX">`
+		str = strings.Replace(str, "<FPKJXX_DDXX>", ddxx, -1)
+	}
 
+	if c.ActionName == DownloadBill {
+		requestType := `<REQUEST_FPXXXZ_NEW class='REQUEST_FPXXXZ_NEW'>`
+		str = strings.Replace(str, "<REQUEST_FPXXXZ_NEW>", requestType, -1)
+	}
 	res, err := tools.TripleDesECBEncrypt([]byte(str), key)
 
 	if err != nil {
@@ -129,7 +210,7 @@ func (c *Data) encrypt(key []byte) error {
 	return nil
 }
 
-func (c *Data) defaultDescription() {
+func (c *RequestData) defaultDescription() {
 	c.Description = &DataDescription{
 		ZipCode:     "0",
 		EncryptCode: "1",
@@ -153,7 +234,7 @@ func NewBillClient() *BillClient {
 		Global: &GlobalInfo{
 			Version: "2.0",
 		},
-		RequestData: &Data{},
+		ReturnState: &ReturnStateInfo{},
 	}
 }
 
@@ -171,12 +252,13 @@ func (s *BillClient) Download() (interface{}, error) {
 
 func (s *BillClient) init(interfaceCode string) []byte {
 	s.setInterfaceCode(interfaceCode)
-	err := s.RequestData.encrypt([]byte(s.Key))
-
-	if err != nil {
-		return nil
+	if interfaceCode == MakeOutBill {
+		s.RequestData.ActionName = MakeOutBill
 	}
-
+	if interfaceCode == DownloadBill {
+		s.RequestData.ActionName = DownloadBill
+	}
+	s.RequestData.encrypt([]byte(s.Key))
 	if s.RequestData.Description == nil {
 		s.RequestData.defaultDescription()
 	}
@@ -195,16 +277,12 @@ func (s *BillClient) setInterfaceCode(code string) {
 func (s *BillClient) doAction(interfaceCode string) (interface{}, error) {
 	// BillClient初始化
 	xmlStr := s.init(interfaceCode)
-
-	// panic(string(xmlStr))
-
 	//发送请求.
 	req, err := http.NewRequest("POST", URL, bytes.NewReader(xmlStr))
 	if err != nil {
 		return nil, err
 	}
 
-	// req.Header.Set("Accept", "text/xml")
 	//这里的http header的设置是必须设置的.
 	req.Header.Set("Content-Type", "text/xml")
 	req.Header.Add("charset", "utf-8")
@@ -224,8 +302,24 @@ func (s *BillClient) doAction(interfaceCode string) (interface{}, error) {
 		err = xml.Unmarshal(body, &xmlRe)
 		return xmlRe.ReturnState, err
 	}
-
 	var xmlRe SecBillClient
 	err = xml.Unmarshal(body, &xmlRe)
-	return xmlRe.ResponseData, err
+
+	if xmlRe.ReturnState.ReturnCode != "0000" {
+		return nil, err
+	}
+	// base64解码
+	crypted, err := base64.StdEncoding.DecodeString(xmlRe.ResponseData.Content)
+	if err != nil {
+		return nil, err
+	}
+	// 3des解密
+	res, err := tools.TripleDesECBDecrypt(crypted, []byte(s.Key))
+	if err != nil {
+		return nil, err
+	}
+	// 解析content
+	var responseContent ResponseContent
+	err = xml.Unmarshal(res, &responseContent)
+	return &responseContent, err
 }
