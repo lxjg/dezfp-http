@@ -55,62 +55,71 @@ type DataDescription struct {
 
 // FPTXX 订单信息
 type FPTXX struct {
-	FPQQLSH   string `xml:"FPQQLSH"`
-	DSPTBM    string `xml:"DSPTBM"`
-	NSRSBH    string `xml:"NSRSBH"`
-	NSRMC     string `xml:"NSRMC"`
-	DKBZ      string `xml:"DKBZ"`
-	KPXM      string `xml:"KPXM"`
-	BMBBBH    string `xml:"BMB_BBH"`
-	XHFNSRSBH string `xml:"XHF_NSRSBH"`
-	XHFMC     string `xml:"XHFMC"`
-	XHFDZ     string `xml:"XHF_DZ"`
-	XHFDH     string `xml:"XHF_DH"`
-	XHFYHZH   string `xml:"XHF_YHZH"`
-	GHFMC     string `xml:"GHFMC"`
-	GHFQYLX   string `xml:"GHFQYLX"`
-	GHFDZ     string `xml:"GHF_DZ"`
-	GHFGDDH   string `xml:"GHF_GDDH"`
-	GHFSJ     string `xml:"GHF_SJ"`
-	GHFEMAIL  string `xml:"GHF_EMAIL"`
-	GHFYHZH   string `xml:"GHF_YHZH"`
-	HYDM      string `xml:"HY_DM"`
-	HYMC      string `xml:"HY_MC"`
-	KPY       string `xml:"KPY"`
-	FHR       string `xml:"FHR"`
-	SKY       string `xml:"SKY"`
-	KPRQ      string `xml:"KPRQ"`
-	KPLX      string `xml:"KPLX"`
-	YFPDM     string `xml:"YFP_DM"`
-	YFPHM     string `xml:"YFP_HM"`
-	CZDM      string `xml:"CZDM"`
-	QDBZ      string `xml:"QD_BZ"`
-	QDXMMC    string `xml:"QDXMMC"`
-	CHYY      string `xml:"CHYY"`
-	TSCHBZ    string `xml:"TSCHBZ"`
-	KPHJJE    string `xml:"KPHJJE"`
-}
-type XMXX struct {
-	XMLName xml.Name `xml:"FPKJXX_XMXX"`
-	XMMC    string   `xml:"XMMC"`
-	XMDW    string   `xml:"XMDW"`
-	XMSL    string   `xml:"XMSL"`
-	HSBZ    string   `xml:"HSBZ"`
-	SPBM    string   `xml:"SPBM"`
-	XMJE    string   `xml:"XMDJ"`
-	SL      string   `xml:"SL"`
-	FPHXZ   string   `xml:"FPHXZ"`
+	// 必填字段
+	FPQQLSH   string `xml:"FPQQLSH"`    // FPQQLSH 发票请求唯一流水号
+	DSPTBM    string `xml:"DSPTBM"`     // 平台编码
+	NSRSBH    string `xml:"NSRSBH"`     // 开票方识别号
+	NSRMC     string `xml:"NSRMC"`      // 开票方名称
+	DKBZ      string `xml:"DKBZ"`       // 代开标志
+	KPXM      string `xml:"KPXM"`       // 主要开票商品，或者第一条商品
+	BMBBBH    string `xml:"BMB_BBH"`    // 编码表版本号
+	XHFNSRSBH string `xml:"XHF_NSRSBH"` // 销方识别号
+	XHFMC     string `xml:"XHFMC"`      // 销方名称
+	XHFDZ     string `xml:"XHF_DZ"`     // 销方地址
+	XHFDH     string `xml:"XHF_DH"`     // 销方电话
+	GHFMC     string `xml:"GHFMC"`      // 购货方名称
+	GHFQYLX   string `xml:"GHFQYLX"`    // 购货方企业类型
+	KPY       string `xml:"KPY"`        // 开票员
+	KPLX      string `xml:"KPLX"`       // 开票类型
+	CZDM      string `xml:"CZDM"`       // 操作代码 10正票正常开具20退货折让红票
+	QDBZ      string `xml:"QD_BZ"`      // 清单标志 默认为0
+	KPHJJE    string `xml:"KPHJJE"`     // 价税合计金额
+
+	// 非必填
+	XHFYHZH  string `xml:"XHF_YHZH"`  // 销方银行、账号
+	GHFDZ    string `xml:"GHF_DZ"`    // 购货方地址
+	GHFGDDH  string `xml:"GHF_GDDH"`  // 购货方固定电话
+	GHFSJ    string `xml:"GHF_SJ"`    // 购货方手机
+	GHFEMAIL string `xml:"GHF_EMAIL"` // 购货方邮箱
+	GHFYHZH  string `xml:"GHF_YHZH"`  // 购货方银行、账号
+	HYDM     string `xml:"HY_DM"`     // 行业代码
+	HYMC     string `xml:"HY_MC"`     // 行业名称
+	SKY      string `xml:"SKY"`       // 收款员
+	FHR      string `xml:"FHR"`       // 复核人
+	KPRQ     string `xml:"KPRQ"`      // 开票日期
+	YFPDM    string `xml:"YFP_DM"`    // 原发票代码
+	YFPHM    string `xml:"YFP_HM"`    // 原发票号码
+	QDXMMC   string `xml:"QDXMMC"`    // 清单发票项目名称
+	CHYY     string `xml:"CHYY"`      // 冲红原因
+	TSCHBZ   string `xml:"TSCHBZ"`    // 特殊冲红标志 0正常冲红(电子发票) 1特殊冲红(冲红纸质等)
 }
 
+// XMXX 项目信息
+type XMXX struct {
+	XMLName xml.Name `xml:"FPKJXX_XMXX"`
+	XMMC    string   `xml:"XMMC"`  // 项目名称
+	XMDW    string   `xml:"XMDW"`  // 项目单位(比如科、门)
+	XMSL    string   `xml:"XMSL"`  // 项目数量
+	HSBZ    string   `xml:"HSBZ"`  // 含税标志 。0表示都不含税，1 表示都含税
+	SPBM    string   `xml:"SPBM"`  // 商品编码
+	XMJE    string   `xml:"XMDJ"`  // 项目金额
+	SL      string   `xml:"SL"`    // 税率 0标识免税
+	FPHXZ   string   `xml:"FPHXZ"` // 发票行性质 0正常行1折扣行2被折扣行
+}
+
+// XMXXS 项目组
 type XMXXS struct {
 	Items []XMXX
 }
 
+// DDXX 订单信息
 type DDXX struct {
-	DDH string `xml:"DDH"`
+	DDH    string `xml:"DDH"`    // 订单号
+	THDH   string `xml:"THDH"`   // 退单号
+	DDDATE string `xml:"DDDATE"` // 订单时间
 }
 
-// RequestContent 交换数据内容
+// MakeRequestContent 开具发票交换数据内容
 type MakeRequestContent struct {
 	XMLName xml.Name `xml:"REQUEST_FPKJXX"`
 	FPTXX   FPTXX    `xml:"FPKJXX_FPTXX"`
@@ -118,6 +127,7 @@ type MakeRequestContent struct {
 	DDXX    DDXX     `xml:"FPKJXX_DDXX"`
 }
 
+// DownloadRequestContent 下载发票交换数据内容
 type DownloadRequestContent struct {
 	XMLName xml.Name `xml:"REQUEST_FPXXXZ_NEW"`
 	FPQQLSH string   `xml:"FPQQLSH"`
@@ -155,8 +165,9 @@ type RequestData struct {
 	// EncryptContent 根据Content加密生成
 	EncryptContent string `xml:"content"`
 	// Content 交换数据内容明文，必需
-	Content    interface{} `xml:"-"`
-	ActionName string      `xml:"-"`
+	Content interface{} `xml:"-"`
+	// ActionName 区别请求action
+	ActionName string `xml:"-"`
 }
 
 // ResponseData 返回数据
