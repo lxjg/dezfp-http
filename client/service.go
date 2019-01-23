@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/xml"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -317,7 +318,7 @@ func (s *BillClient) doAction(interfaceCode string) (interface{}, error) {
 	err = xml.Unmarshal(body, &xmlRe)
 
 	if xmlRe.ReturnState.ReturnCode != "0000" {
-		return nil, err
+		return xmlRe.ReturnState, errors.New(xmlRe.ReturnState.ReturnCode)
 	}
 	// base64解码
 	crypted, err := base64.StdEncoding.DecodeString(xmlRe.ResponseData.Content)
