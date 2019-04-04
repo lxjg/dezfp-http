@@ -7,12 +7,13 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
-	"dezfp-http/tools"
+	"github.com/lxjg/dezfp-http/tools"
 )
 
-// URL 电子发票路由
 const (
 	// URL 请求地址
 	URL = "http://fw1test.shdzfp.com:9000/sajt-shdzfp-sl-http/SvrServlet"
@@ -98,14 +99,16 @@ type FPTXX struct {
 // XMXX 项目信息
 type XMXX struct {
 	XMLName xml.Name `xml:"FPKJXX_XMXX"`
-	XMMC    string   `xml:"XMMC"`  // 项目名称
-	XMDW    string   `xml:"XMDW"`  // 项目单位(比如科、门)
-	XMSL    string   `xml:"XMSL"`  // 项目数量
-	HSBZ    string   `xml:"HSBZ"`  // 含税标志 。0表示都不含税，1 表示都含税
-	SPBM    string   `xml:"SPBM"`  // 商品编码
-	XMJE    string   `xml:"XMDJ"`  // 项目金额
-	SL      string   `xml:"SL"`    // 税率 0标识免税
-	FPHXZ   string   `xml:"FPHXZ"` // 发票行性质 0正常行1折扣行2被折扣行
+	XMMC    string   `xml:"XMMC"`   // 项目名称
+	XMDW    string   `xml:"XMDW"`   // 项目单位(比如科、门)
+	XMSL    string   `xml:"XMSL"`   // 项目数量
+	HSBZ    string   `xml:"HSBZ"`   // 含税标志 。0表示都不含税，1 表示都含税
+	SPBM    string   `xml:"SPBM"`   // 商品编码
+	XMJE    string   `xml:"XMJE"`   // 项目金额
+	XMDJ    string   `xml:"XMDJ"`   // 项目金额
+	SL      string   `xml:"SL"`     // 税率 0标识免税
+	FPHXZ   string   `xml:"FPHXZ"`  // 发票行性质 0正常行1折扣行2被折扣行
+	YHZCBS  string   `xml:"YHZCBS"` // 优惠政策标识 0不使用，1使用
 }
 
 // XMXXS 项目组
@@ -208,7 +211,7 @@ func (c *RequestData) encrypt(key []byte) error {
 	}
 
 	if c.ActionName == DownloadBill {
-		requestType := `<REQUEST_FPXXXZ_NEW class='REQUEST_FPXXXZ_NEW'>`
+		requestType := `<REQUEST_FPXXXZ_NEW class="REQUEST_FPXXXZ_NEW">`
 		str = strings.Replace(str, "<REQUEST_FPXXXZ_NEW>", requestType, -1)
 	}
 	res, err := tools.TripleDesECBEncrypt([]byte(str), key)
@@ -241,25 +244,103 @@ func (s *BillClient) toString() string {
 }
 
 // NewBillClient 实例化发票对象
-func NewBillClient() *BillClient {
+func NewBillClient(username, taxpayerID, authorizationCode, serialNumber, key string) *BillClient {
+	dataExchangeID := strings.Join([]string{
+		username,
+		time.Now().Format("20060102"),
+		strconv.FormatInt(time.Now().Unix()/10, 10),
+	}, "")
 	return &BillClient{
 		Global: &GlobalInfo{
-			Version: "2.0",
+			AppID:             "ZZS_PT_DZFP",
+			Version:           "1.0",
+			TerminalCode:      "0",
+			UserName:          username,
+			PassWord:          tools.GeneratePassword(serialNumber),
+			RequestCode:       username,
+			TaxpayerID:        taxpayerID,
+			AuthorizationCode: authorizationCode,
+			DataExchangeID:    dataExchangeID,
+			RequestTime:       time.Now().Format("2006-01-02 15:04:05"),
 		},
 		ReturnState: &ReturnStateInfo{},
+		Key:         key,
 	}
 }
 
 // MakeOut 开具发票
-func (s *BillClient) MakeOut() (interface{}, error) {
+func (s *BillClient) MakeOut(name, address, phone, fee string, current time.Time) (interface{}, error) {
+	fptxx := FPTXX{
+		FPQQLSH:   s.Global.UserName + current.Format("20060102") + strconv.FormatInt(current.Unix(), 10),
+		DSPTBM:    s.Global.UserName,
+		NSRSBH:    s.Global.TaxpayerID,
+		NSRMC:     name, // 纳税人名称
+		DKBZ:      "0",
+		KPXM:      "鉴证咨询服务*服务费",
+		BMBBBH:    "26.0",
+		XHFNSRSBH: s.Global.TaxpayerID,
+		XHFMC:     name,
+		XHFDZ:     address,
+		XHFDH:     phone,
+		GHFMC:     "个人", // 购货方名称
+		GHFQYLX:   "03",
+		KPY:       "系统开票",
+		KPRQ:      current.Format("2006-01-02 15:04:05"),
+		KPLX:      "1",
+		CZDM:      "10",
+		QDBZ:      "0",
+		TSCHBZ:    "0",
+		KPHJJE:    fee,
+	}
+
+	xmxxs := XMXXS{
+		Items: []XMXX{
+			XMXX{
+				XMMC:   "鉴证咨询服务*服务费",          // 商品名称
+				XMDW:   "次",                   // 商品单位
+				XMSL:   "1",                   // 项目数量
+				HSBZ:   "1",                   // 含税标志
+				SPBM:   "1010101030000000000", //current.Format("20060102150405") + "00000", // 商品编码，不足19位后面补0
+				XMJE:   fee,                   // 项目金额
+				XMDJ:   fee,                   // 项目金额
+				SL:     "0.03",                // 税率
+				FPHXZ:  "0",                   // 发票行性质
+				YHZCBS: "0",
+			},
+		},
+	}
+	dx := DDXX{
+		DDH: current.Format("20060102") + strconv.FormatInt(current.Unix(), 10),
+	}
+	s.FillRequestDataContent(fptxx, xmxxs, dx)
 	// 发起请求
 	return s.doAction(MakeOutBill)
 }
 
 // Download 开具发票
-func (s *BillClient) Download() (interface{}, error) {
+func (s *BillClient) Download(fpqqlsh string) (interface{}, error) {
+	s.RequestData = &RequestData{
+		Content: &DownloadRequestContent{
+			FPQQLSH: fpqqlsh,
+			DSPTBM:  s.Global.UserName,
+			NSRSBH:  s.Global.TaxpayerID,
+			DDH:     string([]rune(fpqqlsh)[8:]),
+			PDFXZFS: "2",
+		},
+	}
 	// 发起请求
 	return s.doAction(DownloadBill)
+}
+
+// FillRequestDataContent 填充发票信息
+func (s *BillClient) FillRequestDataContent(fptxx FPTXX, xmxxs XMXXS, ddxx DDXX) {
+	s.RequestData = &RequestData{
+		Content: &MakeRequestContent{
+			FPTXX: fptxx,
+			XMXXS: xmxxs,
+			DDXX:  ddxx,
+		},
+	}
 }
 
 func (s *BillClient) init(interfaceCode string) []byte {
